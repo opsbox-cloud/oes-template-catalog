@@ -1,0 +1,77 @@
+/*
+# parameters
+
+```yaml
+project:
+    pipeline: 
+        branch: pipeline-config # repository branch 
+```
+*/
+
+def _jenkinsLibraryUrl = "https://github.com/opsbox-dev/oes-jenkins-library.git"
+def _jenkinsOpsboxPipelineFile = ".opsbox/pipeline.yaml"
+def _pipelineDefaultBranch = "pipeline-config"
+
+library identifier: 'objl@master', retriever: modernSCM(
+  [$class: 'GitSCMSource',
+   remote: _jenkinsLibraryUrl])
+
+properties([
+        disableConcurrentBuilds(abortPrevious: true),
+        buildDiscarder(logRotator(numToKeepStr: '20')),
+])
+
+node {
+
+    stage ('init') {
+
+        try {
+            _ = project
+        } catch (e) {
+            project = [:]
+        }
+
+        if (project.pipeline == null) {
+            project.pipeline = [:]
+        }
+
+        if (project.pipeline.branch == null) {
+            project.pipeline.branch = _pipelineDefaultBranch
+        }
+
+        if (project.pipeline.variables == null) {
+            project.pipeline.variables = [:]
+        }
+
+        // clone project code
+        checkout scm
+        
+        // checkout pipeline config
+        checkoutConfig(project.pipeline)
+
+    }
+
+    pipelineFile(_jenkinsOpsboxPipelineFile, project.pipeline.variables)
+}
+
+def checkoutConfig(pipeline) {
+    // clone pipeline code
+    def _tmplClonePath = ".pipeline"
+    def _tmplCheckoutPath = ".opsbox"
+
+    checkout changelog: false, poll: false, 
+        scm: [
+            $class: 'GitSCM', 
+            branches: [[name: pipeline.branch]], 
+            extensions: [
+                [$class: 'CleanBeforeCheckout', deleteUntrackedNestedRepositories: true],
+                [$class: 'RelativeTargetDirectory', relativeTargetDir: _tmplClonePath],
+                [$class: 'CloneOption', depth: 1, noTags: true, reference: '', shallow: true], 
+                [$class: 'SparseCheckoutPaths', sparseCheckoutPaths: [[path: _tmplCheckoutPath]]]
+            ], 
+            userRemoteConfigs: scm.userRemoteConfigs
+        ]
+
+    // sync template .opsbox to workspace
+    sh "rsync -av --delete ${_tmplClonePath}/.opsbox ."
+}
