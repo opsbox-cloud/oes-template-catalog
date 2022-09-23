@@ -3,6 +3,7 @@
 
 ```yaml
 project:
+    mode: immutable # immutable/mutable
     pipeline: 
         branch: pipeline-config # repository branch 
 ```
@@ -31,6 +32,10 @@ node {
             project = [:]
         }
 
+        if (project.mode == null) {
+            project.mode = "immutable"
+        }
+
         if (project.pipeline == null) {
             project.pipeline = [:]
         }
@@ -45,10 +50,13 @@ node {
 
         // clone project code
         checkout scm
-        
-        // checkout pipeline config
-        checkoutConfig(project.pipeline)
 
+        if (project.mode == "mutable" && fileExists(_jenkinsOpsboxPipelineFile)) {
+            echo "--//INFO: mode>> mutable"
+        } else {
+            // checkout pipeline config
+            checkoutConfig(project.pipeline)
+        }
     }
 
     pipelineFile(_jenkinsOpsboxPipelineFile, project.pipeline.variables)
