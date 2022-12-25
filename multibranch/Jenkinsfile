@@ -10,8 +10,8 @@ project:
 */
 
 def _global = [
-    libraryUrl: "https://github.com/opsbox-dev/oes-jenkins-library.git"
-    opsboxPipelineFile: ".opsbox/pipeline.yaml"
+    libraryUrl: "https://github.com/opsbox-dev/oes-jenkins-library.git",
+    opsboxPipelineFile: ".opsbox/pipeline.yaml",
     pipelineDefaultBranch: "pipeline-config"
 ]
 
@@ -22,7 +22,7 @@ def _project = [
 def _pipeline = [
     mode: "immutable",
     branch: _global.pipelineDefaultBranch,
-    variables: [:]
+    variables: [:],
     secrets: [:],
     stages: []
 ]
