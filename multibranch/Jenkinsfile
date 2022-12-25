@@ -5,21 +5,35 @@
 project:
     pipeline: 
         mode: immutable # immutable/mutable
-        branch: pipeline-config # repository branch 
+        branch: pipeline-config # repository branch
 ```
 */
 
-def _jenkinsLibraryUrl = "https://github.com/opsbox-dev/oes-jenkins-library.git"
-def _jenkinsOpsboxPipelineFile = ".opsbox/pipeline.yaml"
-def _pipelineDefaultBranch = "pipeline-config"
+def _global = [
+    libraryUrl: "https://github.com/opsbox-dev/oes-jenkins-library.git"
+    opsboxPipelineFile: ".opsbox/pipeline.yaml"
+    pipelineDefaultBranch: "pipeline-config"
+]
+
+def _project = [
+    pipeline: [:]
+]
+
+def _pipeline = [
+    mode: "immutable",
+    branch: _global.pipelineDefaultBranch,
+    variables: [:]
+    secrets: [:],
+    stages: []
+]
 
 library identifier: 'objl@master', retriever: modernSCM(
   [$class: 'GitSCMSource',
-   remote: _jenkinsLibraryUrl])
+   remote: _global.libraryUrl])
 
 properties([
-        disableConcurrentBuilds(abortPrevious: true),
-        buildDiscarder(logRotator(numToKeepStr: '20')),
+    disableConcurrentBuilds(abortPrevious: true),
+    buildDiscarder(logRotator(numToKeepStr: '20')),
 ])
 
 node {
@@ -29,38 +43,25 @@ node {
         try {
             _ = project
         } catch (e) {
-            project = [:]
+            error("--//ERR: project variable is not set.")
         }
 
-        if (project.pipeline == null) {
-            project.pipeline = [:]
-        }
-
-        if (project.pipeline.mode == null) {
-            project.pipeline.mode = "immutable"
-        }
-
-        if (project.pipeline.branch == null) {
-            project.pipeline.branch = _pipelineDefaultBranch
-        }
-
-        if (project.pipeline.variables == null) {
-            project.pipeline.variables = [:]
-        }
+        _project.putAll(project)
+        _pipeline.putAll(_project.pipeline)
 
         // clone project code
         checkout scm
 
-        if (project.pipeline.mode == "mutable" && fileExists(_jenkinsOpsboxPipelineFile)) {
+        if (_pipeline.mode == "mutable" && fileExists(_global.opsboxPipelineFile)) {
             echo "--//INFO: mode>> mutable, branch>> ${env.BRANCH_NAME}"
         } else {
             echo "--//INFO: mode>> immutable, branch>> ${project.pipeline.branch}"
             // checkout pipeline config
-            checkoutConfig(project.pipeline)
+            checkoutConfig(_project.pipeline)
         }
     }
 
-    pipelineFile(_jenkinsOpsboxPipelineFile, project.pipeline.variables)
+    pipelineFile(_global.opsboxPipelineFile, _pipeline.variables)
 }
 
 def checkoutConfig(pipeline) {
